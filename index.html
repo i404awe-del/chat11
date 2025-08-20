@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>بريدة شات</title>
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #ece5dd;
+    margin: 0;
+    padding: 0;
+    direction: rtl;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+
+  .chat-container {
+    width: 400px;
+    height: 600px;
+    background-color: #fff;
+    box-shadow: 0 0 10px rgb(0 0 0 / 0.2);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  header {
+    background-color: #075e54;
+    color: white;
+    padding: 15px;
+    font-size: 1.3em;
+    text-align: center;
+    font-weight: bold;
+  }
+
+  #messages {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background-color: #dcdcdc;
+  }
+
+  .message {
+    max-width: 70%;
+    padding: 10px 15px;
+    border-radius: 7.5px;
+    font-size: 0.95em;
+    line-height: 1.4;
+    word-wrap: break-word;
+    position: relative;
+    display: inline-block;
+  }
+
+  .message.other {
+    background-color: #fff;
+    color: #000;
+    align-self: flex-start;
+    border-top-left-radius: 0;
+  }
+
+  .message.other::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -7px;
+    width: 0;
+    height: 0;
+    border-top: 10px solid transparent;
+    border-right: 7px solid #fff;
+    border-bottom: 10px solid transparent;
+  }
+
+  .message.self {
+    background-color: #dcf8c6;
+    color: #000;
+    align-self: flex-end;
+    border-top-right-radius: 0;
+  }
+
+  .message.self::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: -7px;
+    width: 0;
+    height: 0;
+    border-top: 10px solid transparent;
+    border-left: 7px solid #dcf8c6;
+    border-bottom: 10px solid transparent;
+  }
+
+  form {
+    display: flex;
+    padding: 10px;
+    background-color: #f0f0f0;
+    border-top: 1px solid #ddd;
+    gap: 5px;
+  }
+
+  input[type="text"] {
+    flex-grow: 1;
+    border-radius: 20px;
+    border: none;
+    padding: 12px 20px;
+    font-size: 1em;
+    outline: none;
+  }
+
+  input[type="file"] {
+    display: none;
+  }
+
+  label[for="imageInput"] {
+    background-color: #075e54;
+    color: white;
+    padding: 12px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: bold;
+    user-select: none;
+  }
+
+  button {
+    background-color: #075e54;
+    border: none;
+    color: white;
+    padding: 12px 20px;
+    font-size: 1em;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+  }
+
+  button:hover, label[for="imageInput"]:hover {
+    background-color: #0a8d80;
+  }
+
+  .message img {
+    max-width: 100%;
+    border-radius: 7.5px;
+    display: block;
+  }
+</style>
+</head>
+<body>
+  <div class="chat-container">
+    <header>بريدة شات</header>
+    <ul id="messages"></ul>
+    <form id="form" autocomplete="off">
+      <input id="input" type="text" placeholder="اكتب رسالتك..." />
+      <label for="imageInput" title="إرسال صورة">📷</label>
+      <input id="imageInput" type="file" accept="image/*" />
+      <button>إرسال</button>
+    </form>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    const form = document.getElementById('form');
+    const input = document.getElementById('input');
+    const messages = document.getElementById('messages');
+    const imageInput = document.getElementById('imageInput');
+
+    let myId = null;
+
+    socket.on('connect', () => {
+      myId = socket.id;
+    });
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+
+      socket.emit('chat message', { id: myId, type: 'text', content: text });
+      addMessage(text, true, 'text');
+      input.value = '';
+    });
+
+    imageInput.addEventListener('change', () => {
+      const file = imageInput.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64Data = reader.result;
+        socket.emit('chat message', { id: myId, type: 'image', content: base64Data });
+        addMessage(base64Data, true, 'image');
+      };
+      reader.readAsDataURL(file);
+      imageInput.value = '';
+    });
+
+    socket.on('chat message', (msg) => {
+      if (msg.id !== myId) {
+        addMessage(msg.content, false, msg.type);
+      }
+    });
+
+    function addMessage(content, isSelf, type) {
+      const li = document.createElement('li');
+      li.className = "message " + (isSelf ? "self" : "other");
+
+      if (type === 'image') {
+        const img = document.createElement('img');
+        img.src = content;
+        li.appendChild(img);
+      } else {
+        li.textContent = content;
+      }
+
+      messages.appendChild(li);
+      messages.scrollTop = messages.scrollHeight;
+    }
+  </script>
+</body>
+</html>
